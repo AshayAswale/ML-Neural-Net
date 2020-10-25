@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import sys
 
 #-------------------------------------------------------------------------
 '''
@@ -64,6 +65,7 @@ def compute_z(x,W,b):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    z = W*x + b
 
     
     
@@ -82,7 +84,30 @@ def compute_a(z):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    a = []
+    # print(z.size)
+    sum = 0
+    maxx = sys.float_info.max/10
+    for z_s in z:
+        try:
+            sum += math.e**z_s[0,0]
+        except FloatingPointError: 
+            sum += 0 if z_s < 0 else maxx
+    if sum == 0:
+        for i in z:
+            a.append(1/z.size)
+        return a
+    for z_s in z:
+        try:
+            a.append(math.e**z_s[0,0]/sum)
+        except FloatingPointError:
+            if z_s < 0:
+                a.append(0) 
+            else:
+                a.append(maxx/sum)
+            
+    a = np.mat(a)
+    a = a.transpose()
     #########################################
     return a
 
@@ -98,7 +123,10 @@ def compute_L(a,y):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    if a[y] != 0:
+        L = -math.log(a[y])
+    else:
+        L = float('inf')
     #########################################
     return L 
 
@@ -118,6 +146,9 @@ def forward(x,y,W,b):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    z = compute_z(x,W,b)
+    a = compute_a(z)
+    L = compute_L(a, y)
     
     #########################################
     return z, a, L 
@@ -142,6 +173,15 @@ def compute_dL_da(a, y):
     '''
     #########################################
     ## INSERT YOUR CODE HERE     
+    dL_da = np.zeros(a.size)
+    # print(dL_da, y)
+    if a[y] != 0:
+        dL_da[y] = (-1/a[y])
+    else:
+        dL_da[y] = -sys.float_info.max
+
+    dL_da = np.mat(dL_da)
+    dL_da = dL_da.transpose()
     
     
     #########################################
@@ -162,8 +202,16 @@ def compute_da_dz(a):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    da_dz = np.zeros([a.size, a.size])
+    for i in range(0,a.size):
+        for j in range(0, a.size):
+            if i == j:
+                da_dz[i][j] = a[i]*(1-a[i])
+            else:
+                da_dz[i][j] = -a[i]*a[j]
     
     #########################################
+    da_dz = np.mat(da_dz)
     return da_dz 
 
 
@@ -181,7 +229,11 @@ def compute_dz_dW(x,c):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dz_dW = np.zeros([c,x.size])
+    x_np = np.array(x.transpose())
+    for i in range(0,c):
+        dz_dW[i]=(x_np[0])
+    dz_dW = np.mat(dz_dW)
 
     #########################################
     return dz_dW
@@ -202,7 +254,10 @@ def compute_dz_db(c):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dz_db = np.ones([c,1])
+    # print(dz_db)
+    dz_db = np.mat(dz_db)
+    # dz_db = dz_db.transpose
     
     #########################################
     return dz_db
@@ -232,7 +287,10 @@ def backward(x,y,a):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dL_da = compute_dL_da(a, y)
+    da_dz = compute_da_dz(a)
+    dz_dW = compute_dz_dW(x,a.size)
+    dz_db = compute_dz_db(a.size)
     
     
     
@@ -254,7 +312,7 @@ def compute_dL_dz(dL_da,da_dz):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dL_dz = da_dz*dL_da
     
     
     #########################################
@@ -278,6 +336,12 @@ def compute_dL_dW(dL_dz,dz_dW):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    # print(dL_dz.transpose(), dz_dW)
+    # print(dz_dW.shape[1])
+    dL_dW = np.zeros(dz_dW.shape)
+    for i in range(0,dz_dW.shape[0]):
+        dL_dW[i] = dL_dz[i]*dz_dW[i]
+    dL_dW = np.mat(dL_dW)
     
     
     #########################################
@@ -301,7 +365,7 @@ def compute_dL_db(dL_dz,dz_db):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dL_db = dL_dz*dz_db.transpose()
 
 
     #########################################
@@ -326,6 +390,7 @@ def update_W(W, dL_dW, alpha=0.001):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    W -= alpha*dL_dW
     
 
     #########################################
@@ -349,6 +414,7 @@ def update_b(b, dL_db, alpha=0.001):
     
     #########################################
     ## INSERT YOUR CODE HERE
+    b -= alpha*dL_db
     
     
     
@@ -386,16 +452,22 @@ def train(X, Y, alpha=0.01, n_epoch=100):
             #########################################
             ## INSERT YOUR CODE HERE
             # Forward pass: compute the logits, softmax and cross_entropy 
-    
+            z,a,L = forward(x, y, W, b)
             
             # Back Propagation: compute local gradients of cross_entropy, softmax and logits
+            dL_da, da_dz, dz_dW, dz_db = backward(x, y, a)
     
 
 
             # compute the global gradients using chain rule 
-    
+            dL_dz = compute_dL_dz(dL_da, da_dz)
+            dL_dW = compute_dL_dW(dL_dz, dz_dW)
+            dL_db = compute_dL_db(dL_dz, dz_db)
 
             # update the paramters using gradient descent
+            W = update_W(W, dL_dW, alpha)
+            # print(dL_db)
+            b = update_b(b, dL_db[:,0], alpha)
     
 
             #########################################
@@ -422,6 +494,10 @@ def predict(Xtest, W, b):
         x = x.T # convert to column vector
         #########################################
         ## INSERT YOUR CODE HERE
+        z = (compute_z(x, W, b))
+        a = compute_a(z)
+        P[i, :] = np.array(np.mat(a/sum(a)).T)
+        Y[i] = np.argmax(P[i,:])
     
         #########################################
     return Y, P 
