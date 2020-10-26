@@ -97,6 +97,7 @@ def compute_z1(x,W1,b1):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    z1 = sr.compute_z(x, W1, b1)
     
     #########################################
     return z1
@@ -117,9 +118,17 @@ def compute_a1(z1):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    a1 = np.zeros(z1.size)
+    # print(z1.size)
+    for i, z in enumerate(z1):
+        try:
+            a1[i] = 1/(1+math.exp(-z))
+        except OverflowError: 
+            a1[i] = 0
+    a1 = np.mat(a1)
+
     #########################################
-    return a1 
+    return a1.T
 
 #-----------------------------------------------------------------
 def compute_z2(a1,W2,b2):
@@ -134,6 +143,7 @@ def compute_z2(a1,W2,b2):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    z2 = sr.compute_z(a1, W2, b2)
     
     #########################################
     return z2
@@ -153,6 +163,7 @@ def compute_a2(z2):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    a2 = np.mat(sr.compute_a(z2))
     
     #########################################
     return a2 
@@ -178,9 +189,12 @@ def forward(x, W1, b1, W2, b2):
     #########################################
     ## INSERT YOUR CODE HERE
     # first layer
-    
+    z1 = compute_z1(x, W1, b1)
+    a1 = compute_a1(z1)    
 
     # second layer
+    z2 = compute_z2(a1, W2, b2)
+    a2 = compute_a2(z2)
     
 
     #########################################
@@ -204,6 +218,7 @@ def compute_dL_da2(a2, y):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dL_da2 = sr.compute_dL_da(a2, y)
     
 
     #########################################
@@ -221,6 +236,7 @@ def compute_da2_dz2(a2):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    da2_dz2 = sr.compute_da_dz(a2)
     
     #########################################
     return da2_dz2 
@@ -238,6 +254,7 @@ def compute_dz2_dW2(a1,c):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dz2_dW2 = sr.compute_dz_dW(a1, c)
     
 
     #########################################
@@ -256,6 +273,7 @@ def compute_dz2_db2(c):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dz2_db2 = sr.compute_dz_db(c)
     
     #########################################
     return dz2_db2
@@ -274,6 +292,7 @@ def compute_dz2_da1(W2):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dz2_da1 = W2
     
     #########################################
     return dz2_da1 
@@ -293,6 +312,10 @@ def compute_da1_dz1(a1):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    da1_dz1 = np.zeros(a1.shape)
+    for i, a in enumerate(a1):
+        da1_dz1[i] = a*(1-a)
+    da1_dz1 = np.mat(da1_dz1)
     
     #########################################
     return da1_dz1 
@@ -311,6 +334,10 @@ def compute_dz1_dW1(x,h):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dz1_dW1 = np.zeros((h, x.shape[0]))
+    for i in range(0,h):
+        dz1_dW1[i, :] = (x.T)[0, :]
+    dz1_dW1 = np.mat(dz1_dW1)
     
     #########################################
     return dz1_dW1
@@ -328,6 +355,8 @@ def compute_dz1_db1(h):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
+    dz1_db1 = np.ones(h)
+    dz1_db1 = np.mat(dz1_db1).T
     
     #########################################
     return dz1_db1
@@ -354,7 +383,16 @@ def backward(x,y,a1,a2,W2):
     #########################################
     ## INSERT YOUR CODE HERE
     # 2nd layer
-    
+    c = a2.size
+    h = a1.size
+    dL_da2 = compute_dL_da2(a2, y)
+    da2_dz2 = compute_da2_dz2(a2)
+    dz2_dW2 = compute_dz2_dW2(a1,c)
+    dz2_db2 = compute_dz2_db2(c)
+    dz2_da1 = compute_dz2_da1(W2)
+    da1_dz1 = compute_da1_dz1(a1)
+    dz1_dW1 = compute_dz1_dW1(x,h)
+    dz1_db1 = compute_dz1_db1(h)
 
     # 1st layer
     
@@ -379,10 +417,11 @@ def compute_dL_da1(dL_dz2,dz2_da1):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    dL_da1 = dL_dz2.T*dz2_da1
+    dL_da1 = np.mat(dL_da1)
 
     #########################################
-    return dL_da1
+    return dL_da1.T
 
 
 #-----------------------------------------------------------------
@@ -399,7 +438,11 @@ def compute_dL_dz1(dL_da1,da1_dz1):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-    
+    # print(dL_da1.shape[0])
+    dL_dz1 = np.zeros(dL_da1.shape[0])
+    for i in range(0,dL_da1.shape[0]):
+        dL_dz1[i] = dL_da1[i]*da1_dz1[i]
+    dL_dz1 = np.mat(dL_dz1).T
 
     #########################################
     return dL_dz1
@@ -420,7 +463,23 @@ def compute_gradients(dL_da2, da2_dz2, dz2_dW2, dz2_db2, dz2_da1, da1_dz1, dz1_d
     #########################################
     ## INSERT YOUR CODE HERE
     # the 2nd layer
-    
+    dL_dW2 = np.mat(np.multiply(dL_da2, da2_dz2).T*dz2_dW2)
+    dL_db2 = np.mat(np.multiply(dL_da2, da2_dz2).T*dz2_db2)
+
+    # print(dL_da2)
+    # print(da2_dz2)
+    dL_dz2 = dL_da2.T* da2_dz2
+    # print(dL_dz2)
+    dL_da1 = compute_dL_da1(dL_dz2.T, dz2_da1)
+    # print(dL_da1)
+    # print(dL_da1[:, 0])
+    dL_dz1 = compute_dL_dz1(dL_da1[:, 0],da1_dz1)
+    # print(dL_dz1)
+    dL_dW1 = np.multiply(dL_dz1, dz1_dW1)
+    dL_dW1 = np.mat(dL_dW1)
+
+    dL_db1 = np.multiply(dL_dz1,dz1_db1)
+    dL_db1 = np.mat(dL_db1)
 
     # the 1st layer
     
@@ -466,15 +525,22 @@ def train(X, Y,h=3, n_layers=3, alpha=0.01, n_epoch=100):
             ## INSERT YOUR CODE HERE
 
             # Forward pass
+            z1, a1, z2, a2 = forward(x, W1, b1, W2, b2)
     
             
             # compute local gradients 
-    
+            dL_da2, da2_dz2, dz2_dW2, dz2_db2, dz2_da1, da1_dz1, dz1_dW1, dz1_db1 = backward(x,y,a1,a2,W2)
 
             # Back Propagation
+            dL_dW2, dL_db2, dL_dW1, dL_db1 = compute_gradients(dL_da2, da2_dz2, dz2_dW2, dz2_db2, dz2_da1, da1_dz1, dz1_dW1, dz1_db1)
     
 
             # update the paramters using gradient descent
+            W1 = sr.update_W(W1, dL_dW1)
+            W2 = sr.update_W(W2, dL_dW2)
+            b1 = sr.update_b(b1, dL_db1)
+            b2 = sr.update_b(b2, dL_db2)
+            
     
             #########################################
     return W1, b1, W2, b2
@@ -498,6 +564,18 @@ def predict(Xtest, W1,b1,W2,b2):
         x = x.T # convert to column vector
         #########################################
         ## INSERT YOUR CODE HERE
+        
+        # z = (compute_z(x, W, b))
+        # a = compute_a(z)
+        # P[i, :] = np.array(np.mat(a/sum(a)).T)
+        # Y[i] = np.argmax(P[i,:])
+
+        z1 = compute_z1(x, W1, b1)
+        a1 = compute_a1(z1)
+        z2 = compute_z2(a1, W2, b2)
+        a2 = compute_a2(z2)
+        P[i, :] = np.array(np.mat(a2/sum(a2)).T)
+        Y[i] = np.argmax(P[i,:])
     
 
         #########################################
